@@ -155,9 +155,9 @@ func ping(client *redis.Client) {
 }
 
 func deleteKeys(client *redis.Client, keys map[string]string) {
-	for _, key := range keys {
+	for key, _ := range keys {
 		log.Println("DELETING KEY: ", key)
-		if err := client.Del(ctx, key).Err(); err != nil {
+		if err := client.Unlink(ctx, key).Err(); err != nil {
 			log.Fatalf("FAILED TO DELETE KEY %v", key)
 		}
 	}
