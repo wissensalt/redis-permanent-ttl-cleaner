@@ -35,20 +35,25 @@ func main() {
 
 		if scanner.Text() == "2" {
 			myRedisKeyVal = scanKeyAndValueWithoutTTL(client, "*")
-			backupKeysWithoutTTL(myRedisKeyVal)
+			backupKeysWithoutTTL(myRedisKeyVal, true, false)
 		}
 
 		if scanner.Text() == "3" {
-			myRedisKeyVal = readInput(FileName)
-			setTTLForNoExpiryKeys(client, myRedisKeyVal)
+			myRedisKeyVal = scanKeyAndValueWithoutTTL(client, "*")
+			backupKeysWithoutTTL(myRedisKeyVal, false, false)
 		}
 
 		if scanner.Text() == "4" {
 			myRedisKeyVal = readInput(FileName)
-			deleteKeys(client, myRedisKeyVal)
+			setTTLForNoExpiryKeys(client, myRedisKeyVal)
 		}
 
 		if scanner.Text() == "5" {
+			myRedisKeyVal = readInput(FileName)
+			deleteKeys(client, myRedisKeyVal)
+		}
+
+		if scanner.Text() == "6" {
 			myRedisKeyVal = readInput(FileName)
 			restoreKeyValues(client, myRedisKeyVal)
 		}
@@ -66,9 +71,10 @@ func printMenu() {
 	log.Println("### REDIS PERMANENT TTL CLEANER ###")
 	log.Println("1: PING")
 	log.Println("2: BACKUP FOR KEYS WITHOUT TTL")
-	log.Println("3: SET VALID TTL FOR KEYS WITHOUT TTL")
-	log.Println("4: DELETE FOR KEYS WITHOUT TTL")
-	log.Println("5: RESTORE KEYS")
+	log.Println("3: BACKUP FOR KEYS WITHOUT TTL (NO FILTER)")
+	log.Println("4: SET VALID TTL FOR KEYS WITHOUT TTL")
+	log.Println("5: DELETE FOR KEYS WITHOUT TTL")
+	log.Println("6: RESTORE KEYS")
 	log.Println("0: EXIT")
 	log.Println()
 }
@@ -83,7 +89,7 @@ func connect() *redis.Client {
 	})
 }
 
-func backupKeysWithoutTTL(myRedisKeyVal map[string]string) {
+func backupKeysWithoutTTL(myRedisKeyVal map[string]string, filterAsciiPrintable bool, includeValue bool) {
 	if _, err := os.Stat(FileName); err == nil {
 		os.Remove(FileName)
 	}
@@ -101,13 +107,27 @@ func backupKeysWithoutTTL(myRedisKeyVal map[string]string) {
 	}(f)
 
 	for key, val := range myRedisKeyVal {
-		if isAsciiPrintable(val) {
-			if _, err := f.WriteString(key + DELIMITER + val + "\n"); err != nil {
-				log.Println(err)
+		if filterAsciiPrintable {
+			if isAsciiPrintable(val) {
+				writeFile(f, key, val, includeValue)
 			}
+		} else {
+			writeFile(f, key, val, includeValue)
 		}
 	}
 	log.Printf("COMPLETED BACKUP KEYS WITHOUT TTL. TOTAL: %v\n", len(myRedisKeyVal))
+}
+
+func writeFile(f *os.File, key string, val string, includeValue bool) {
+	if includeValue {
+		if _, err := f.WriteString(key + DELIMITER + val + "\n"); err != nil {
+			log.Println(err)
+		}
+	} else {
+		if _, err := f.WriteString(key + "\n"); err != nil {
+			log.Println(err)
+		}
+	}
 }
 
 func scanKeyAndValueWithoutTTL(client *redis.Client, key string) map[string]string {
