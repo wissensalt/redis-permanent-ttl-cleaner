@@ -58,6 +58,10 @@ func main() {
 			restoreKeyValues(client, myRedisKeyVal)
 		}
 
+		if scanner.Text() == "7" {
+			deleteKeysViaIterator(client)
+		}
+
 		if scanner.Text() == "0" {
 			os.Exit(1)
 		}
@@ -75,6 +79,7 @@ func printMenu() {
 	log.Println("4: SET VALID TTL FOR KEYS WITHOUT TTL")
 	log.Println("5: DELETE FOR KEYS WITHOUT TTL")
 	log.Println("6: RESTORE KEYS")
+	log.Println("7: DELETE FOR KEYS WITHOUT TTL VIA ITERATOR")
 	log.Println("0: EXIT")
 	log.Println()
 }
@@ -172,6 +177,36 @@ func scanKeyAndValueWithoutTTL(client *redis.Client, key string) map[string]stri
 func ping(client *redis.Client) {
 	pong, err := client.Ping(ctx).Result()
 	log.Println(pong, err)
+}
+
+// For Use case key with unicode character. Example: �
+func deleteKeysViaIterator(client *redis.Client) {
+	var cursor uint64
+	scanIterator := client.Scan(ctx, cursor, "*", 0).Iterator()
+	counter := 0
+	for scanIterator.Next(ctx) {
+		key := scanIterator.Val()
+		ttl, err := client.TTL(ctx, key).Result()
+		if err != nil {
+			continue
+		}
+
+		if ttl == -1 {
+			log.Printf("DELETING KEY :%v\n", key)
+			if err := client.Unlink(ctx, key).Err(); err != nil {
+				log.Fatalf("FAILED TO DELETE KEY %v\n", key)
+			}
+			counter++
+		}
+
+		if counter > 0 && counter%1000 == 0 {
+			sleepDurationInSeconds := 10
+			log.Printf("Sleeping in %v Seconds for cooling down Redis\n", sleepDurationInSeconds)
+			time.Sleep(time.Duration(sleepDurationInSeconds) * time.Second)
+		}
+	}
+
+	log.Printf("Completed delete Permanent Redis Keys via Iterator with Total Keys %v\n", counter)
 }
 
 func deleteKeys(client *redis.Client, keys map[string]string) {
