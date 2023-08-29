@@ -153,7 +153,7 @@ func scanKeyAndValueWithoutTTL(client *redis.Client, key string) map[string]stri
 				continue
 			}
 
-			if ttl == -1 {
+			if ttl == -1 || ttl == -2 {
 				log.Printf("KEY %v HAS NO TTL: ", key)
 				val, err := client.Get(ctx, key).Result()
 				if err != nil {
@@ -186,12 +186,13 @@ func deleteKeysViaIterator(client *redis.Client) {
 	counter := 0
 	for scanIterator.Next(ctx) {
 		key := scanIterator.Val()
+		log.Printf("SCANNING KEY: %v\n", key)
 		ttl, err := client.TTL(ctx, key).Result()
 		if err != nil {
 			continue
 		}
 
-		if ttl == -1 {
+		if ttl == -1 || ttl == -2 {
 			log.Printf("DELETING KEY :%v\n", key)
 			if err := client.Unlink(ctx, key).Err(); err != nil {
 				log.Fatalf("FAILED TO DELETE KEY %v\n", key)
@@ -201,8 +202,9 @@ func deleteKeysViaIterator(client *redis.Client) {
 
 		if counter > 0 && counter%1000 == 0 {
 			sleepDurationInSeconds := 10
-			log.Printf("Sleeping in %v Seconds for cooling down Redis\n", sleepDurationInSeconds)
+			log.Printf("Sleeping in %v Seconds for cooling down Redis. Counter %v\n", sleepDurationInSeconds, counter)
 			time.Sleep(time.Duration(sleepDurationInSeconds) * time.Second)
+			counter++
 		}
 	}
 
