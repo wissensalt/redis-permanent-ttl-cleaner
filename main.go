@@ -3,13 +3,14 @@ package main
 import (
 	"bufio"
 	"context"
-	"github.com/redis/go-redis/v9"
 	"io"
 	"log"
 	"os"
 	"strings"
 	"time"
 	"unicode"
+
+	"github.com/redis/go-redis/v9"
 )
 
 const (
